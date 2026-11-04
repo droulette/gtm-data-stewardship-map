@@ -1,0 +1,651 @@
+<!DOCTYPE html><html lang="en"><head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>GTM Data Stewardship Map</title>
+  <style>
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      height: 100vh;
+      overflow: hidden;
+      background: #101114;
+      color: #e7e9ee;
+      font-family: Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    }
+
+    .header {
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      z-index: 20;
+      height: 64px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 20px;
+      padding: 14px 24px;
+      background: rgba(16, 17, 20, 0.94);
+      border-bottom: 1px solid #272a32;
+      backdrop-filter: blur(12px);
+    }
+
+    h1 {
+      font-size: 18px;
+      font-weight: 680;
+      line-height: 1.15;
+      letter-spacing: 0;
+    }
+
+    .subtitle {
+      margin-top: 4px;
+      color: #9da4b2;
+      font-size: 12px;
+    }
+
+    .controls {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      flex-shrink: 0;
+    }
+
+    button {
+      min-width: 34px;
+      height: 32px;
+      padding: 0 10px;
+      border: 1px solid #353947;
+      border-radius: 6px;
+      background: #20232b;
+      color: #d7dbe4;
+      cursor: pointer;
+      font-size: 13px;
+    }
+
+    button:hover {
+      border-color: #50586b;
+      background: #2a2f3a;
+    }
+
+    .zoom-label {
+      min-width: 44px;
+      color: #9da4b2;
+      font-size: 12px;
+      text-align: center;
+    }
+
+    .canvas-container {
+      width: 100vw;
+      height: 100vh;
+      padding-top: 64px;
+      cursor: grab;
+    }
+
+    .canvas-container:active {
+      cursor: grabbing;
+    }
+
+    svg {
+      width: 100%;
+      height: 100%;
+      display: block;
+    }
+
+    .stage-label {
+      fill: #8e96a8;
+      font-size: 11px;
+      font-weight: 760;
+      letter-spacing: 1.25px;
+      text-transform: uppercase;
+    }
+
+    .stage-line {
+      stroke: #2b2f39;
+      stroke-width: 1;
+      stroke-dasharray: 5 5;
+    }
+
+    .node rect {
+      cursor: pointer;
+      transition: filter 0.16s ease, stroke-width 0.16s ease;
+    }
+
+    .node:hover rect {
+      filter: brightness(1.15) drop-shadow(0 0 9px rgba(96, 165, 250, 0.22));
+      stroke-width: 2.3;
+    }
+
+    .node text {
+      pointer-events: none;
+      letter-spacing: 0;
+    }
+
+    .node-kicker {
+      font-size: 10px;
+      font-weight: 800;
+      text-transform: uppercase;
+    }
+
+    .node-title {
+      fill: #f6f7fb;
+      font-size: 13px;
+      font-weight: 720;
+    }
+
+    .node-subtitle {
+      fill: #9da4b2;
+      font-size: 10px;
+    }
+
+    .kpi-title {
+      fill: #f6f7fb;
+      font-size: 14px;
+      font-weight: 760;
+    }
+
+    .kpi-formula {
+      fill: #d7dbe4;
+      font-size: 11px;
+      font-weight: 640;
+    }
+
+    .kpi-why {
+      fill: #9da4b2;
+      font-size: 10px;
+    }
+
+    .edge path {
+      fill: none;
+      stroke-width: 2;
+      opacity: 0.6;
+      transition: opacity 0.16s ease, stroke-width 0.16s ease;
+    }
+
+    .edge:hover path {
+      opacity: 1;
+      stroke-width: 3;
+    }
+
+    .flowing {
+      stroke-dasharray: 10 9;
+      animation: flow 1.3s linear infinite;
+    }
+
+    @keyframes flow {
+      from { stroke-dashoffset: 19; }
+      to { stroke-dashoffset: 0; }
+    }
+
+    .legend {
+      position: fixed;
+      left: 20px;
+      bottom: 20px;
+      z-index: 10;
+      width: 220px;
+      padding: 14px 16px;
+      border: 1px solid #333744;
+      border-radius: 8px;
+      background: rgba(24, 27, 34, 0.95);
+      backdrop-filter: blur(12px);
+    }
+
+    .legend h2 {
+      margin-bottom: 10px;
+      color: #aab2c1;
+      font-size: 11px;
+      font-weight: 800;
+      letter-spacing: 1.2px;
+      text-transform: uppercase;
+    }
+
+    .legend-item {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin: 7px 0;
+      color: #d7dbe4;
+      font-size: 12px;
+      line-height: 1.2;
+    }
+
+    .legend-dot {
+      width: 12px;
+      height: 12px;
+      border-radius: 3px;
+      flex-shrink: 0;
+    }
+
+    .detail-panel {
+      position: fixed;
+      top: 64px;
+      right: 0;
+      z-index: 15;
+      width: 388px;
+      height: calc(100vh - 64px);
+      padding: 24px;
+      overflow-y: auto;
+      border-left: 1px solid #333744;
+      background: rgba(24, 27, 34, 0.98);
+      transform: translateX(100%);
+      transition: transform 0.22s ease;
+      backdrop-filter: blur(12px);
+    }
+
+    .detail-panel.open {
+      transform: translateX(0);
+    }
+
+    .close-btn {
+      position: absolute;
+      top: 12px;
+      right: 12px;
+      width: 28px;
+      height: 28px;
+      border: 0;
+      background: transparent;
+      color: #9da4b2;
+      cursor: pointer;
+      font-size: 20px;
+      line-height: 1;
+    }
+
+    .detail-panel h2 {
+      padding-right: 28px;
+      font-size: 17px;
+      font-weight: 720;
+      line-height: 1.2;
+    }
+
+    .detail-layer {
+      display: inline-block;
+      margin-top: 8px;
+      margin-bottom: 18px;
+      padding: 4px 9px;
+      border-radius: 6px;
+      font-size: 11px;
+      font-weight: 760;
+      letter-spacing: 0.8px;
+      text-transform: uppercase;
+    }
+
+    .detail-section {
+      margin-bottom: 18px;
+    }
+
+    .detail-section h3 {
+      margin-bottom: 7px;
+      color: #9da4b2;
+      font-size: 11px;
+      font-weight: 800;
+      letter-spacing: 0.9px;
+      text-transform: uppercase;
+    }
+
+    .detail-section p,
+    .detail-section li {
+      color: #d7dbe4;
+      font-size: 13px;
+      line-height: 1.55;
+    }
+
+    .detail-section ul {
+      padding-left: 18px;
+    }
+
+    @media (max-width: 900px) {
+      .header {
+        height: 88px;
+        align-items: flex-start;
+        flex-direction: column;
+        gap: 8px;
+      }
+
+      .canvas-container {
+        padding-top: 88px;
+      }
+
+      .detail-panel {
+        top: 88px;
+        width: min(100vw, 388px);
+        height: calc(100vh - 88px);
+      }
+
+      .legend {
+        display: none;
+      }
+    }
+  </style>
+<style type="text/css">
+ .stage-label,.detail-layer{letter-spacing:0}.node:focus{outline:none}.node:focus rect{stroke:#ffffff;stroke-width:3}
+ .demo{position:fixed;inset:0;background:#0009;z-index:40;display:none;align-items:center;justify-content:center;padding:20px}.demo.open{display:flex}
+ .demo article{width:min(650px,100%);max-height:90vh;overflow:auto;background:#171a20;border:1px solid #434958;border-radius:8px;padding:28px;position:relative}
+ .demo h2{font-size:24px;margin:0 40px 8px 0}.demo p{line-height:1.5;color:#b8c1d0;margin-bottom:16px}.demo label{display:flex;gap:12px;align-items:center;padding:12px 0;font-size:16px}.demo input{width:18px;height:18px;accent-color:#34d399}
+ .decision{border-top:1px solid #434958;margin-top:12px;padding-top:18px}.decision strong{font-size:24px;color:#34d399}.decision p{margin-top:8px}.demo .close-demo{position:absolute;right:16px;top:16px}.sample-meta{color:#fbbf24!important;font-size:14px}
+ @media(max-width:700px){.header{height:116px;flex-direction:column;align-items:flex-start;gap:10px;padding:14px}.canvas-container{padding-top:116px;overflow:auto;touch-action:pan-x pan-y}#mainSvg{width:1560px;height:860px}.subtitle{font-size:11px}.legend{display:none}.detail-panel{width:100%;top:116px;height:calc(100vh - 116px)}.demo{padding:12px}.demo article{padding:22px}.controls{gap:6px}}
+ @media(prefers-reduced-motion:reduce){.flow-edge{animation:none!important}.detail-panel{transition:none}}
+</style></head>
+<body>
+  <header class="header">
+    <div>
+      <h1>GTM Data Stewardship Map</h1>
+      <p class="subtitle">Proposed operating model. Synthetic readiness demo. No live integrations.</p>
+    </div>
+    <div class="controls" aria-label="Map controls">
+      <button type="button" onclick="zoomOut()" aria-label="Zoom out">-</button>
+      <span class="zoom-label" id="zoomLabel">100%</span>
+      <button type="button" onclick="zoomIn()" aria-label="Zoom in">+</button>
+      <button type="button" onclick="resetView()">Reset</button>
+      <button type="button" onclick="toggleFlow()">Flow</button>
+    <button onclick="openDemo()">Demo</button></div>
+  </header>
+
+  <aside class="legend" aria-label="Legend">
+    <h2>Layers</h2>
+    <div class="legend-item"><span class="legend-dot" style="background:#ff6b6b;"></span>Sources</div>
+    <div class="legend-item"><span class="legend-dot" style="background:#60a5fa;"></span>Trusted record</div>
+    <div class="legend-item"><span class="legend-dot" style="background:#fbbf24;"></span>GTM measures</div>
+    <div class="legend-item"><span class="legend-dot" style="background:#34d399;"></span>Stewardship contract</div>
+    <div class="legend-item"><span class="legend-dot" style="background:#fb923c;"></span>GTM decisions</div>
+  </aside>
+
+  <aside class="detail-panel" id="detailPanel" aria-live="polite">
+    <button class="close-btn" type="button" onclick="closeDetail()" aria-label="Close details" title="Close details">x</button>
+    <div id="detailContent"></div>
+  </aside>
+
+  <main class="canvas-container" id="canvasContainer">
+    <svg id="mainSvg" viewBox="0 0 1560 860" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="GTM sources, trusted records, measures and ownership">
+      <defs>
+        <marker id="arrow-red" markerWidth="9" markerHeight="7" refX="9" refY="3.5" orient="auto">
+          <path d="M0,0 L9,3.5 L0,7" fill="#ff6b6b" opacity="0.75"></path>
+        </marker>
+        <marker id="arrow-blue" markerWidth="9" markerHeight="7" refX="9" refY="3.5" orient="auto">
+          <path d="M0,0 L9,3.5 L0,7" fill="#60a5fa" opacity="0.75"></path>
+        </marker>
+        <marker id="arrow-yellow" markerWidth="9" markerHeight="7" refX="9" refY="3.5" orient="auto">
+          <path d="M0,0 L9,3.5 L0,7" fill="#fbbf24" opacity="0.75"></path>
+        </marker>
+        <marker id="arrow-green" markerWidth="9" markerHeight="7" refX="9" refY="3.5" orient="auto">
+          <path d="M0,0 L9,3.5 L0,7" fill="#34d399" opacity="0.75"></path>
+        </marker>
+      </defs>
+
+      <g id="viewport" transform="translate(26,22) scale(1)">
+        <rect x="0" y="0" width="1508" height="760" rx="8" fill="#171a20" opacity="0.74"></rect>
+
+        <text x="145" y="54" class="stage-label" text-anchor="middle">Sources</text>
+        <text x="390" y="54" class="stage-label" text-anchor="middle">Trusted records</text>
+        <text x="780" y="54" class="stage-label" text-anchor="middle">Measures I own</text>
+        <text x="1192" y="54" class="stage-label" text-anchor="middle">Stewardship</text>
+        <text x="1390" y="54" class="stage-label" text-anchor="middle">GTM use</text>
+
+        <line class="stage-line" x1="285" y1="34" x2="285" y2="718"></line>
+        <line class="stage-line" x1="548" y1="34" x2="548" y2="718"></line>
+        <line class="stage-line" x1="1018" y1="34" x2="1018" y2="718"></line>
+        <line class="stage-line" x1="1302" y1="34" x2="1302" y2="718"></line>
+
+        <!-- Input signals -->
+        <g class="node" onclick="showDetail('signals_product')" tabindex="0" role="button" aria-label="Salesforce" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();this.onclick()}">
+          <rect x="46" y="104" width="198" height="68" rx="8" fill="#221619" stroke="#ff6b6b" stroke-width="1.5"></rect>
+          <text x="145" y="128" text-anchor="middle" fill="#ff6b6b" class="node-kicker">Commercial authority</text>
+          <text x="145" y="149" text-anchor="middle" class="node-title">Salesforce</text>
+          <text x="145" y="164" text-anchor="middle" class="node-subtitle">owners, deals, suppression</text>
+        </g>
+
+        <g class="node" onclick="showDetail('signals_generation')" tabindex="0" role="button" aria-label="Apollo and targeted enrichment" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();this.onclick()}">
+          <rect x="46" y="206" width="198" height="68" rx="8" fill="#221619" stroke="#ff6b6b" stroke-width="1.5"></rect>
+          <text x="145" y="230" text-anchor="middle" fill="#ff6b6b" class="node-kicker">Discovery + enrichment</text>
+          <text x="145" y="251" text-anchor="middle" class="node-title">Apollo first</text>
+          <text x="145" y="266" text-anchor="middle" class="node-subtitle">companies, buyers, channels</text>
+        </g>
+
+        <g class="node" onclick="showDetail('signals_handoff')" tabindex="0" role="button" aria-label="Company research and Claude" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();this.onclick()}">
+          <rect x="46" y="308" width="198" height="68" rx="8" fill="#221619" stroke="#ff6b6b" stroke-width="1.5"></rect>
+          <text x="145" y="332" text-anchor="middle" fill="#ff6b6b" class="node-kicker">Sourced fit evidence</text>
+          <text x="145" y="353" text-anchor="middle" class="node-title">Research + Claude</text>
+          <text x="145" y="368" text-anchor="middle" class="node-subtitle">official facts, dated sources</text>
+        </g>
+
+        <g class="node" onclick="showDetail('signals_commercial')" tabindex="0" role="button" aria-label="Discovery and onboarding intake" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();this.onclick()}">
+          <rect x="46" y="410" width="198" height="68" rx="8" fill="#221619" stroke="#ff6b6b" stroke-width="1.5"></rect>
+          <text x="145" y="434" text-anchor="middle" fill="#ff6b6b" class="node-kicker">Customer confirmation</text>
+          <text x="145" y="455" text-anchor="middle" class="node-title">Discovery + intake</text>
+          <text x="145" y="470" text-anchor="middle" class="node-subtitle">workflows, systems, stakeholders</text>
+        </g>
+
+        <!-- Foundation -->
+        <g class="node" onclick="showDetail('foundation_raw')" tabindex="0" role="button" aria-label="Source observations and history" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();this.onclick()}">
+          <rect x="320" y="150" width="180" height="84" rx="8" fill="#111d2d" stroke="#60a5fa" stroke-width="1.5"></rect>
+          <text x="410" y="178" text-anchor="middle" fill="#60a5fa" class="node-kicker">Audit trail</text>
+          <text x="410" y="202" text-anchor="middle" class="node-title">Evidence log</text>
+          <text x="410" y="221" text-anchor="middle" class="node-subtitle">source, value, date, reviewer</text>
+        </g>
+
+        <g class="node" onclick="showDetail('foundation_marts')" tabindex="0" role="button" aria-label="Approved account and contact records" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();this.onclick()}">
+          <rect x="320" y="304" width="180" height="102" rx="8" fill="#111d2d" stroke="#60a5fa" stroke-width="1.5"></rect>
+          <text x="410" y="333" text-anchor="middle" fill="#60a5fa" class="node-kicker">Identity + verification</text>
+          <text x="410" y="358" text-anchor="middle" class="node-title">Shared record</text>
+          <text x="410" y="377" text-anchor="middle" class="node-subtitle">accounts + contacts</text>
+          <text x="410" y="392" text-anchor="middle" class="node-subtitle">approved facts, readiness</text>
+        </g>
+
+        <!-- KPI cards -->
+        <g class="node" onclick="showDetail('kpi_qdo')" tabindex="0" role="button" aria-label="Sales-ready market coverage" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();this.onclick()}">
+          <rect x="590" y="92" width="380" height="84" rx="8" fill="#2a220c" stroke="#fbbf24" stroke-width="1.6"></rect>
+          <text x="780" y="116" text-anchor="middle" fill="#fbbf24" class="node-kicker">Primary measure</text>
+          <text x="780" y="139" text-anchor="middle" class="kpi-title">Sales-ready market coverage</text>
+          <text x="780" y="158" text-anchor="middle" class="kpi-formula">ready / confirmed eligible buying companies</text>
+          <text x="780" y="171" text-anchor="middle" class="kpi-why">owner + buyer + fresh allowed channel</text>
+        </g>
+
+        <g class="node" onclick="showDetail('kpi_activation')" tabindex="0" role="button" aria-label="Eligible market and TAM" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();this.onclick()}">
+          <rect x="590" y="206" width="380" height="84" rx="8" fill="#2a220c" stroke="#fbbf24" stroke-width="1.6"></rect>
+          <text x="780" y="230" text-anchor="middle" fill="#fbbf24" class="node-kicker">Market denominator</text>
+          <text x="780" y="253" text-anchor="middle" class="kpi-title">Eligible market and TAM</text>
+          <text x="780" y="272" text-anchor="middle" class="kpi-formula">distinct buying companies in the agreed scope</text>
+          <text x="780" y="285" text-anchor="middle" class="kpi-why">unresolved fit stays visible</text>
+        </g>
+
+        <g class="node" onclick="showDetail('kpi_retention')" tabindex="0" role="button" aria-label="Reachable buyers" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();this.onclick()}">
+          <rect x="590" y="320" width="380" height="84" rx="8" fill="#2a220c" stroke="#fbbf24" stroke-width="1.6"></rect>
+          <text x="780" y="344" text-anchor="middle" fill="#fbbf24" class="node-kicker">Contact quality</text>
+          <text x="780" y="367" text-anchor="middle" class="kpi-title">Reachable buyers</text>
+          <text x="780" y="386" text-anchor="middle" class="kpi-formula">email and phone evidence for each person</text>
+          <text x="780" y="399" text-anchor="middle" class="kpi-why">expiry, opt-out, actual channel results</text>
+        </g>
+
+        <g class="node" onclick="showDetail('kpi_handoff')" tabindex="0" role="button" aria-label="AE adoption and effort" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();this.onclick()}">
+          <rect x="590" y="434" width="380" height="84" rx="8" fill="#2a220c" stroke="#fbbf24" stroke-width="1.6"></rect>
+          <text x="780" y="458" text-anchor="middle" fill="#fbbf24" class="node-kicker">AE usefulness</text>
+          <text x="780" y="481" text-anchor="middle" class="kpi-title">Adoption and effort</text>
+          <text x="780" y="500" text-anchor="middle" class="kpi-formula">worked / assigned + research minutes</text>
+          <text x="780" y="513" text-anchor="middle" class="kpi-why">feedback closes the correction loop</text>
+        </g>
+
+        <g class="node" onclick="showDetail('kpi_expansion')" tabindex="0" role="button" aria-label="Cost and commercial yield" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();this.onclick()}">
+          <rect x="590" y="548" width="380" height="84" rx="8" fill="#2a220c" stroke="#fbbf24" stroke-width="1.6"></rect>
+          <text x="780" y="572" text-anchor="middle" fill="#fbbf24" class="node-kicker">Commercial progress</text>
+          <text x="780" y="595" text-anchor="middle" class="kpi-title">Cost and yield</text>
+          <text x="780" y="614" text-anchor="middle" class="kpi-formula">cost per newly ready account; meetings / 100 worked</text>
+          <text x="780" y="627" text-anchor="middle" class="kpi-why">review opportunities over 60-90 days</text>
+        </g>
+
+        <!-- Governance -->
+        <g class="node" onclick="showDetail('governance')" tabindex="0" role="button" aria-label="My stewardship contract" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();this.onclick()}">
+          <rect x="1054" y="246" width="232" height="160" rx="8" fill="#10251d" stroke="#34d399" stroke-width="1.6"></rect>
+          <text x="1170" y="277" text-anchor="middle" fill="#34d399" class="node-kicker">I own the process</text>
+          <text x="1170" y="303" text-anchor="middle" class="node-title">Stewardship contract</text>
+          <text x="1170" y="328" text-anchor="middle" class="node-subtitle">approved field sources</text>
+          <text x="1170" y="347" text-anchor="middle" class="node-subtitle">definitions + owners</text>
+          <text x="1170" y="366" text-anchor="middle" class="node-subtitle">freshness + suppression</text>
+          <text x="1170" y="385" text-anchor="middle" class="node-subtitle">issue queue + follow-through</text>
+        </g>
+
+        <!-- Consumers -->
+        <g class="node" onclick="showDetail('consumer_humans')" tabindex="0" role="button" aria-label="Salesforce AE queues" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();this.onclick()}">
+          <rect x="1340" y="158" width="132" height="94" rx="8" fill="#2a190f" stroke="#fb923c" stroke-width="1.5"></rect>
+          <text x="1406" y="188" text-anchor="middle" fill="#fb923c" class="node-kicker">Execution</text>
+          <text x="1406" y="213" text-anchor="middle" class="node-title">AE queues</text>
+          <text x="1406" y="232" text-anchor="middle" class="node-subtitle">Salesforce + outbound</text>
+        </g>
+
+        <g class="node" onclick="showDetail('consumer_ai')" tabindex="0" role="button" aria-label="Weekly GTM review" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();this.onclick()}">
+          <rect x="1340" y="356" width="132" height="94" rx="8" fill="#1d2630" stroke="#22d3ee" stroke-width="1.5"></rect>
+          <text x="1406" y="386" text-anchor="middle" fill="#22d3ee" class="node-kicker">Learning</text>
+          <text x="1406" y="411" text-anchor="middle" class="node-title">GTM review</text>
+          <text x="1406" y="430" text-anchor="middle" class="node-subtitle">coverage, cost, yield</text>
+        </g>
+
+        <!-- Edges -->
+        <g class="edge"><path class="flow-edge" d="M244,138 C284,138 288,166 320,172" stroke="#ff6b6b" marker-end="url(#arrow-red)"></path></g>
+        <g class="edge"><path class="flow-edge" d="M244,240 C284,240 288,196 320,196" stroke="#ff6b6b" marker-end="url(#arrow-red)"></path></g>
+        <g class="edge"><path class="flow-edge" d="M244,342 C284,342 288,218 320,218" stroke="#ff6b6b" marker-end="url(#arrow-red)"></path></g>
+        <g class="edge"><path class="flow-edge" d="M244,444 C284,444 288,230 320,230" stroke="#ff6b6b" marker-end="url(#arrow-red)"></path></g>
+        <g class="edge"><path class="flow-edge" d="M410,234 C410,260 410,278 410,304" stroke="#60a5fa" marker-end="url(#arrow-blue)"></path></g>
+
+        <g class="edge"><path class="flow-edge" d="M500,355 C548,355 540,134 590,134" stroke="#60a5fa" marker-end="url(#arrow-blue)"></path></g>
+        <g class="edge"><path class="flow-edge" d="M500,355 C548,355 540,248 590,248" stroke="#60a5fa" marker-end="url(#arrow-blue)"></path></g>
+        <g class="edge"><path class="flow-edge" d="M500,355 C548,355 540,362 590,362" stroke="#60a5fa" marker-end="url(#arrow-blue)"></path></g>
+        <g class="edge"><path class="flow-edge" d="M500,355 C548,355 540,476 590,476" stroke="#60a5fa" marker-end="url(#arrow-blue)"></path></g>
+        <g class="edge"><path class="flow-edge" d="M500,355 C548,355 540,590 590,590" stroke="#60a5fa" marker-end="url(#arrow-blue)"></path></g>
+
+        <g class="edge"><path class="flow-edge" d="M970,134 C1026,134 1018,292 1054,306" stroke="#fbbf24" marker-end="url(#arrow-yellow)"></path></g>
+        <g class="edge"><path class="flow-edge" d="M970,248 C1026,248 1018,316 1054,322" stroke="#fbbf24" marker-end="url(#arrow-yellow)"></path></g>
+        <g class="edge"><path class="flow-edge" d="M970,362 C1026,362 1018,340 1054,340" stroke="#fbbf24" marker-end="url(#arrow-yellow)"></path></g>
+        <g class="edge"><path class="flow-edge" d="M970,476 C1026,476 1018,368 1054,366" stroke="#fbbf24" marker-end="url(#arrow-yellow)"></path></g>
+        <g class="edge"><path class="flow-edge" d="M970,590 C1026,590 1018,390 1054,388" stroke="#fbbf24" marker-end="url(#arrow-yellow)"></path></g>
+
+        <g class="edge"><path class="flow-edge" d="M1286,306 C1320,306 1310,205 1340,205" stroke="#34d399" marker-end="url(#arrow-green)"></path></g>
+        <g class="edge"><path class="flow-edge" d="M1286,346 C1320,346 1310,403 1340,403" stroke="#34d399" marker-end="url(#arrow-green)"></path></g>
+      </g>
+    </svg>
+  </main>
+
+  <script>
+    const details = {"signals_product":{"name":"Salesforce","layer":"Commercial authority","color":"#ff6b6b","definition":"I preserve the commercial relationships the team already has. Salesforce controls current owners, customers, active deals and approved current account/contact values.","inputs":["Account and contact IDs, domain and reviewed parent relationships","Existing owner, territory, customer and active opportunity","Opt-out / suppression and approved contact fields","AE activity, meetings and stage changes"],"traps":["Enrichment must not overwrite an active owner.","The CRM is our known market, not the whole TAM."]},"signals_generation":{"name":"Apollo and targeted enrichment","layer":"Market discovery","color":"#ff6b6b","definition":"Apollo is the first source for company discovery and basic enrichment. I buy extra coverage only when a side-by-side test shows the gap is worth closing.","inputs":["Company universe: US logistics and warehousing, provisional 250+ employee screen","Buyer role candidates, current employer, business email and phone","Prospeo for email gaps, Hunter for email verification, phone provider / Connectrate for call evidence","Test ZoomInfo or Clearbit / Breeze on the same 30 accounts: incremental usable records and cost"],"traps":["Provider contacts are candidates until checked.","A gateway-risk signal is not proof that an email will fail.","No provider connection is implemented in this artifact."]},"signals_handoff":{"name":"Company research and Claude","layer":"Sourced fit evidence","color":"#ff6b6b","definition":"Official websites and filings help explain workflow relevance and operational footprint. Claude proposes structured facts with exact sources. I review conflicts and unsupported claims.","inputs":["Company URL or filing, quoted evidence and observed date","Sites, relevant operations and documented systems","Workflow relevance, complexity and footprint evidence","Reviewer and status: confirmed, inferred, unknown"],"traps":["Footprint is a scale clue, not proof of buyer pain.","Job postings can suggest technology but do not confirm current usage.","AI must never invent contacts or silently fill unknowns."]},"signals_commercial":{"name":"Discovery and onboarding intake","layer":"Customer-confirmed facts","color":"#ff6b6b","definition":"A short AE / CS intake captures what we learn once a company engages. It improves the account record and handoff. It cannot discover companies we have not reached.","inputs":["Actual exception workflows and present systems","Buying stakeholders, sites and rollout scope","Respondent, date, account ID and AE / CSM review","Customer confirmation updates the evidence record"],"traps":["A survey answer needs the correct company and reviewer.","Collect only necessary business information."]},"foundation_raw":{"name":"Source observations and history","layer":"Evidence log","color":"#60a5fa","definition":"I keep observations separate from approved values so every correction and decision has a traceable explanation. Start with a controlled pilot register, not a new platform purchase.","inputs":["Account ID or contact ID, field, original value","Source URL / provider, observed date and confidence","Previous value, proposed value, review decision and reviewer","Batch ID and failure reason for approved writeback"],"traps":["Preserve disagreeing observations.","Never overwrite a more recent verified fact with an older provider record.","A warehouse is a later scale option, not a pilot prerequisite."]},"foundation_marts":{"name":"Approved account and contact records","layer":"Shared record","color":"#60a5fa","definition":"The shared record links each buying company to its people and the evidence behind current facts. Salesforce holds approved values. The evidence log keeps history and outstanding questions.","inputs":["Company identity: domain + reviewed parent / subsidiary buying relationships","Contact identity: person + current employer, relevant role","Separate email and phone status, checked date and actual outcomes per person","Eligibility, evidence-based fit score, tier, owner and readiness reason","Suppression, freshness checks and exception queue"],"traps":["Branches are not automatically independent buyers.","Unknown fit goes to research, not a zero score.","Critical conflicts block release. Keep batch pause / rollback available."]},"kpi_qdo":{"name":"Sales-ready market coverage","layer":"Primary measure","color":"#fbbf24","definition":"Sales-ready eligible buying companies / all confirmed eligible companies in the segment, using a weekly snapshot. Publish counts and the Tier 1/2 subset alongside the rate.","inputs":["Current eligible fit evidence and approved owner","At least one relevant current buyer with one fresh allowed channel","Two relevant contacts are a separate multi-threading target","Proposed pilot aim: 80%+ coverage of eligible Tier 1/2 accounts, baseline first"],"traps":["Do not count a researched row as ready.","Suppressed accounts stay visible in market coverage but outside the ready numerator.","The 100-account sample is not the TAM."]},"kpi_activation":{"name":"Eligible market and TAM","layer":"Market denominator","color":"#fbbf24","definition":"Count distinct eligible buying companies once. Report confirmed eligible, excluded with reasons, and unresolved. No TAM count or revenue estimate is claimed by this demo.","inputs":["Proposed first segment: US logistics / warehousing with relevant operating workflows","Apollo + industry directories + CRM reconciliation","250+ employees is a discovery screen with reviewed fit exceptions","Revenue TAM = eligible companies by segment x approved segment ACV assumptions"],"traps":["A CRM list misses unknown companies.","Parents and sites can inflate counts.","Unresolved fit stays visible but outside confirmed eligible counts."]},"kpi_retention":{"name":"Reachable buyers","layer":"Contact quality","color":"#fbbf24","definition":"Report fresh email and phone evidence for each relevant buyer, then compare it with actual channel results. A verified address is not a guarantee of delivery or engagement.","inputs":["Email: valid verification, provider and date","Phone: matched buyer number, current provider evidence, actual right-person connects","Proposed channel expiry: 30 days, immediate review after bounce or job change","Hard-bounce rate = hard bounces / (delivered + hard-bounced attempts)"],"traps":["Opt-out blocks outreach regardless of fit.","A first call need not have a prior observed connection.","Show raw attempt counts. Proposed bounce aim under 2%, not a result."]},"kpi_handoff":{"name":"AE adoption and effort","layer":"Usefulness","color":"#fbbf24","definition":"Track worked accounts / assigned accounts and median research minutes per accepted account. Ask why reps reject an account and close the correction loop.","inputs":["Assignment snapshot and first meaningful AE activity","Timed research sample before / after on comparable accounts","Rejection reason, correction owner, due date and resolution","Proposed aim: 30% less median research time"],"traps":["A page view or list export does not prove use.","Separate unused lists from wrong or unreachable records."]},"kpi_expansion":{"name":"Cost and commercial yield","layer":"GTM outcome","color":"#fbbf24","definition":"Compare provider spend with newly usable accounts. Review meetings per 100 worked accounts and later sourced opportunities with Sales.","inputs":["Provider and verification cost / newly ready accounts","Meetings / distinct worked eligible accounts x 100","CRM opportunity outcomes over 60-90 days","Same segment, similar outreach effort, baseline and raw counts"],"traps":["A small pilot cannot prove causal pipeline lift.","Do not buy extra enrichment to inflate record counts."]},"governance":{"name":"My stewardship contract","layer":"Ownership and guardrails","color":"#34d399","definition":"I own data delivery, coverage gaps and follow-through. Sales owns commercial rules. Solutions validates workflow fit. AEs / CS confirm customer facts.","inputs":["Daily: refresh failures, duplicates, bounces, stale contacts","Weekly: AE corrections, coverage gaps, named owner and due date","Monthly: provider quality, spend and fit rules","Proposed fit score: workflow 40%, complexity 35%, footprint 25%; Tier 1 >=80, Tier 2 60-79","Existing owners first, then Sales-approved territory / segment / capacity rules","Fact conflicts: reviewed current customer / official evidence outranks provider guesses"],"traps":["Evidence, opt-outs and active owner protection are release gates.","Fit and contact readiness are different decisions.","Changing definitions needs a version and team approval."]},"consumer_humans":{"name":"Salesforce AE queues","layer":"Execution","color":"#fb923c","definition":"AEs receive approved accounts with a reason to focus, current contacts and a clear owner. Only allowed contacts enter Instantly lists after review.","inputs":["Account context, source evidence, tier and readiness reason","Approved assignment, buyer role, fresh channel","Hold / research / reverify / AE review next action","AE correction returns to my issue queue"],"traps":["This map proposes writeback; it does not execute it.","No autonomous outreach or real contacts in the demo."]},"consumer_ai":{"name":"Weekly GTM review","layer":"Outcomes and learning","color":"#22d3ee","definition":"I bring the team the largest gap, what caused it, who will fix it, and whether the previous fix worked. Sales helps decide whether to expand.","inputs":["Coverage by segment and tier, including unresolved fit","Quality, AE adoption, time saved and cost","Meetings and opportunities with clear attribution limits","Expand, repair bottleneck, or stop an ineffective source"],"traps":["A clean list that nobody uses is still my problem.","No live business performance appears in this artifact."]}};
+
+    function escapeHtml(value) {
+      return String(value)
+        .replaceAll("&", "&amp;")
+        .replaceAll("<", "&lt;")
+        .replaceAll(">", "&gt;")
+        .replaceAll('"', "&quot;")
+        .replaceAll("'", "&#039;");
+    }
+
+    function listHtml(items) {
+      return items.map((item) => `<li>${escapeHtml(item)}</li>`).join("");
+    }
+
+    function showDetail(key) {
+      const d = details[key];
+      if (!d) return;
+      const watchOut = d.traps && d.traps.length
+        ? `<section class="detail-section"><h3>What I would watch out for</h3><ul>${listHtml(d.traps)}</ul></section>`
+        : "";
+
+      document.getElementById("detailContent").innerHTML = `
+        <h2>${escapeHtml(d.name)}</h2>
+        <div class="detail-layer" style="background:${d.color}22; color:${d.color}; border:1px solid ${d.color}55;">${escapeHtml(d.layer)}</div>
+        <section class="detail-section">
+          <h3>What this means</h3>
+          <p>${escapeHtml(d.definition)}</p>
+        </section>
+        <section class="detail-section">
+          <h3>What I would need</h3>
+          <ul>${listHtml(d.inputs)}</ul>
+        </section>
+        ${watchOut}
+      `;
+      document.getElementById("detailPanel").classList.add("open");
+    }
+
+    function closeDetail() {
+      document.getElementById("detailPanel").classList.remove("open");
+    }
+
+    let scale = 1;
+    let panX = 26;
+    let panY = 22;
+    let isPanning = false;
+    let startX = 0;
+    let startY = 0;
+
+    const viewport = document.getElementById("viewport");
+    const container = document.getElementById("canvasContainer");
+
+    function updateTransform() {
+      viewport.setAttribute("transform", `translate(${panX},${panY}) scale(${scale})`);
+      document.getElementById("zoomLabel").textContent = `${Math.round(scale * 100)}%`;
+    }
+
+    function zoomIn() {
+      scale = Math.min(scale * 1.2, 2.8);
+      updateTransform();
+    }
+
+    function zoomOut() {
+      scale = Math.max(scale / 1.2, 0.45);
+      updateTransform();
+    }
+
+    function resetView() {
+      scale = 1;
+      panX = 26;
+      panY = 22;
+      updateTransform();
+    }
+
+    container.addEventListener("mousedown", (event) => {
+      if (event.target.closest(".node")) return;
+      isPanning = true;
+      startX = event.clientX - panX;
+      startY = event.clientY - panY;
+    });
+
+    container.addEventListener("mousemove", (event) => {
+      if (!isPanning) return;
+      panX = event.clientX - startX;
+      panY = event.clientY - startY;
+      updateTransform();
+    });
+
+    container.addEventListener("mouseup", () => {
+      isPanning = false;
+    });
+
+    container.addEventListener("mouseleave", () => {
+      isPanning = false;
+    });
+
+    container.addEventListener("wheel", (event) => {
+      event.preventDefault();
+      const delta = event.deltaY > 0 ? 0.92 : 1.08;
+      scale = Math.max(0.45, Math.min(2.8, scale * delta));
+      updateTransform();
+    }, { passive: false });
+
+    let flowEnabled = false;
+
+    function toggleFlow() {
+      flowEnabled = !flowEnabled;
+      document.querySelectorAll(".flow-edge").forEach((edge) => {
+        edge.classList.toggle("flowing", flowEnabled);
+      });
+    }
+
+    resetView();
+  </script>
+
+
+<section class="demo" id="demo" role="dialog" aria-modal="true" aria-labelledby="demoTitle"><article><button class="close-demo" onclick="closeDemo()" aria-label="Close demo">x</button><h2 id="demoTitle">Summit Warehousing</h2><p class="sample-meta">Fictional account. Approved fit 88 / Tier 1. Eligible. Assigned AE. One relevant buyer.</p><p>Email readiness</p><label><input id="verified" type="checkbox" onchange="updateDemo()">Email verified</label><label><input id="current" type="checkbox" checked="" onchange="updateDemo()">Verification within 30 days</label><label><input id="suppressed" type="checkbox" onchange="updateDemo()">Contact opted out</label><div class="decision" aria-live="polite"><strong id="decision"></strong><p id="reason"></p><p>Fit stays 88. This demo evaluates one email channel only. It does not calculate fit, verify a real address or update Salesforce.</p></div><button onclick="resetDemo()">Reset example</button></article></section><script>
+ function openDemo(){document.getElementById('demo').classList.add('open');updateDemo();document.getElementById('verified').focus()}
+ function closeDemo(){document.getElementById('demo').classList.remove('open');document.querySelector('.controls button:last-child').focus()}
+ function resetDemo(){document.getElementById('verified').checked=false;document.getElementById('current').checked=true;document.getElementById('suppressed').checked=false;updateDemo()}
+ function updateDemo(){const v=document.getElementById('verified').checked,c=document.getElementById('current').checked,s=document.getElementById('suppressed').checked;document.getElementById('decision').textContent=s?'Hold outreach':!v?'Verify email':!c?'Reverify email':'AE review';document.getElementById('reason').textContent=s?'Opt-out takes priority over fit and verification. I keep the hold out of outbound lists.':!v?'The buyer is relevant, but this channel lacks verification. I send the gap to the verification queue.':!c?'The observation has expired. I refresh it before releasing outreach.':'The channel clears this demo gate. The AE reviews the account before outreach.'}
+ document.addEventListener('keydown',e=>{if(e.key==='Escape'){closeDetail();if(document.getElementById('demo').classList.contains('open'))closeDemo()}if(e.key==='Tab'&&document.getElementById('demo').classList.contains('open')){const a=[...document.querySelectorAll('#demo button,#demo input')],first=a[0],last=a[a.length-1];if(e.shiftKey&&document.activeElement===first){e.preventDefault();last.focus()}else if(!e.shiftKey&&document.activeElement===last){e.preventDefault();first.focus()}}});
+ </script></body></html>
